@@ -1,0 +1,121 @@
+<template>
+    <!-- Search & Filter Bar -->
+    <div class="slds-p-around_medium filter-bar">
+        <lightning-input 
+            type="search"
+            label="Search Notes"
+            value={searchKey}
+            onchange={handleSearchKeyChange}
+            onkeypress={handleSearchEnter}>
+        </lightning-input>
+
+        <lightning-combobox
+            label="Filter By User"
+            value={selectedUserId}
+            options={userOptions}
+            onchange={handleUserFilterChange}>
+        </lightning-combobox>
+
+        <!-- New Note Button -->
+        <div class="slds-m-top_small">
+            <lightning-button label="New" variant="brand" onclick={handleNewNoteClick}></lightning-button>
+        </div>
+    </div>
+
+    <!-- Filter Buttons -->
+    <div class="filter-button-wrapper slds-wrap slds-m-top_medium">
+        <template for:each={updatedButtonList} for:item="btn">
+            <div key={btn.value}
+                 class="slds-text-align_center filter-button"
+                 data-value={btn.value}
+                 onclick={handleButtonClick}>
+                <lightning-icon size="x-small"
+                                icon-name={btn.icon}
+                                class={btn.iconClass}
+                                alternative-text={btn.label}
+                                title={btn.label}>
+                </lightning-icon>
+                <p class="slds-m-top_x-small">{btn.label}</p>
+            </div>
+        </template>
+    </div>
+
+    <!-- Notes List -->
+    <template if:true={filteredNotes}>
+        <ul class="slds-p-horizontal_medium">
+            <template for:each={filteredNotes} for:item="note">
+                <li key={note.Id} class="slds-box slds-m-vertical_x-small">
+                    <div class="slds-grid slds-grid_align-spread">
+                        <div>
+                            <div class="slds-text-title_bold">{note.Subject}</div>
+                            <div>{note.Body}</div>
+                            <div class="slds-text-color_weak slds-text-body_small">{note.OwnerName} • {note.CreatedDate}</div>
+                        </div>
+                        <lightning-button-icon
+                            icon-name="utility:edit"
+                            alternative-text="Edit Note"
+                            title="Edit Note"
+                            onclick={handleEditNoteClick}
+                            data-id={note.Id}
+                            class="slds-m-right_small">
+                        </lightning-button-icon>
+                    </div>
+                </li>
+            </template>
+        </ul>
+    </template>
+    <template if:false={filteredNotes}>
+
+         <div class="icon-container ">
+                    <div class="slds-text-align_center">
+
+                        <img src={noAssistanceIcon} alt="No Assistance Icon" />
+                        <p style="margin:20px 0;">
+                            There have been no notes created.
+                        </p>
+                        <lightning-button label="Create New Note" variant="brand" onclick={handleNewNoteClick}></lightning-button>
+                        </lightning-button>
+                    </div>
+                </div>
+    </template>
+
+    <!-- Modal to Create/Edit Note -->
+    <template if:true={showModal}>
+        <section role="dialog" tabindex="-1" class="custom-modal slds-modal slds-slide-up-open" aria-modal="true">
+            <div class="slds-modal__container">
+                <!-- Modal Header -->
+                <header class="slds-modal__header" style="border-top: 4px solid green;">
+                    <lightning-icon icon-name="utility:edit" alternative-text={modalTitle} size="x-small" class="slds-m-right_small"></lightning-icon>
+                    <h2 class="slds-text-heading_medium">{modalTitle}</h2>
+                </header>
+
+                <!-- Modal Body -->
+                <div class="slds-modal__content slds-p-around_medium">
+                    <h1 class="slds-text-heading_large slds-text-align_center">{recordName} -</h1>
+
+                    <!-- Subject -->
+                    <lightning-input label="Subject" value={newNoteSubject} onchange={handleSubjectChange}></lightning-input>
+
+                    <!-- Body -->
+                    <label class="slds-form-element__label slds-m-top_medium">Body</label>
+                    <lightning-input-rich-text
+                        value={newNoteBody}
+                        onchange={handleBodyChange}
+                        class="slds-m-top_small"
+                        variant="bottom-toolbar">
+                    </lightning-input-rich-text>
+                </div>
+
+                <!-- Modal Footer -->
+                <footer class="slds-modal__footer slds-grid slds-grid_align-spread">
+                    <lightning-button label="Cancel" onclick={handleCloseModal} variant="destructive" class="slds-m-left_small"></lightning-button>
+                    <lightning-button label={modalButtonLabel} onclick={handleSaveNote} variant="success" class="slds-m-right_small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+    </template>
+
+    <!-- Toast for Error/Success Messages -->
+    <lightning-toast variant="error" message={errorMessage} if:true={showError}></lightning-toast>
+    <lightning-toast variant="success" message={successMessage} if:true={showSuccess}></lightning-toast>
+</template>
