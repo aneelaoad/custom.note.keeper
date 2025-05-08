@@ -52,13 +52,16 @@
         <ul class="slds-p-horizontal_medium">
             <template for:each={filteredNotes} for:item="note">
                 <li key={note.Id} class="slds-box slds-m-vertical_x-small">
+                    <div class="slds-col slds-size_1-of-12 slds-p-top_x-small">
+                    <lightning-icon icon-name="action:user" size="x-small" alternative-text="User"></lightning-icon>
+                </div>
+
+                
                     <div class="slds-grid slds-grid_align-spread">
                         <div>
                             <div class="slds-text-title_bold">{note.Subject}</div>
                             <div>{note.Body}</div>
-                            <div class="slds-text-color_weak slds-text-body_small">{note.OwnerName} • {note.CreatedDate}</div>
-                        </div>
-                        <lightning-button-icon
+                             <lightning-button-icon
                             icon-name="utility:edit"
                             alternative-text="Edit Note"
                             title="Edit Note"
@@ -66,6 +69,14 @@
                             data-id={note.Id}
                             class="slds-m-right_small">
                         </lightning-button-icon>
+                        </div>
+
+                        <div class="right">
+                            <div class="slds-text-color_weak slds-text-body_small">{note.OwnerName} • {note.CreatedDate}</div>
+
+                         <lightning-icon icon-name="standard:avatar_loading" size="x-small" alternative-text="User"></lightning-icon>
+                       
+                    </div>
                     </div>
                 </li>
             </template>

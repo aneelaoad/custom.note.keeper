@@ -26,10 +26,13 @@ export default class CustomNoteKeeper extends LightningElement {
     @wire(getActiveUsers)
     wiredActiveUsers({ error, data }) {
         if (data) {
-            this.userOptions = data.map(user => ({
-                label: user.Name, // Display user's Name in the combobox
-                value: user.Id   // Store the user's Id as the value
-            }));
+           this.userOptions = [
+                { label: 'All', value: '' }, // Default "All" option
+                ...data.map(user => ({
+                    label: user.Name, // Display user's Name in the combobox
+                    value: user.Id    // Store the user's Id as the value
+                }))
+            ];
             this.error = undefined; // Clear any previous errors
         } else if (error) {
             this.error = error; // Handle error
