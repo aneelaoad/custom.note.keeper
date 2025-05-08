@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
 	<masterLabel>Custom Note Keeper</masterLabel>
-	<apiVersion>62.0</apiVersion>
+	<apiVersion>63.0</apiVersion>
 	<description>It is a lightweight, intuitive component that allows Salesforce users to quickly create, edit, and manage notes directly within the platform.</description>
 	<isExposed>true</isExposed>
 	<targets>

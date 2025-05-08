@@ -33,8 +33,19 @@ public with sharing class NotesController {
     }
 
     @AuraEnabled
-    public static NoteWrapper createNote(Id recordId, String subject, String body) {
+    public static NoteWrapper createNote(Id recordId, String subject, String body, String role) {
+    
+
         try {
+            //  List<String> roles = role != null ? role.split(',') : new List<String>();
+            System.debug('role: ' +role);
+
+            List<String> roleList = role.split(',');
+            String roleString = String.join(roleList, ';'); 
+            
+            System.debug('roleString: ' +roleString);
+
+            
             if (String.isBlank(recordId)) {
                 throw new AuraHandledException('Record ID is required to create a note.');
             }
@@ -45,7 +56,8 @@ public with sharing class NotesController {
             Note__c note = new Note__c(
                 Loan__c = recordId,
                 Subject__c = subject,
-                Body__c = body
+                Body__c = body,
+                Role__c = roleString
             );
             NoteService.createNotes(new List<Note__c>{note});
 
@@ -119,4 +131,17 @@ public with sharing class NotesController {
             Loan = note.Loan__c;
         }
     }
+
+ @AuraEnabled(cacheable=true)
+    public static List<User> getActiveUsers() {
+        // Query to fetch active users. You can add more filters as per your requirements.
+        List<User> activeUsers = [
+            SELECT Id, Name, Username, Email
+            FROM User
+            WHERE IsActive = TRUE
+            ORDER BY Name
+        ];
+        return activeUsers;
+    }
+
 }

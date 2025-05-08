@@ -5,6 +5,7 @@ import updateNote from '@salesforce/apex/NotesController.updateNote';
 import { CurrentPageReference } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import noAssistance from '@salesforce/resourceUrl/NoAsisstentceSvg';
+import getActiveUsers from '@salesforce/apex/NotesController.getActiveUsers';
 
 export default class CustomNoteKeeper extends LightningElement {
     recordId;
@@ -12,6 +13,7 @@ export default class CustomNoteKeeper extends LightningElement {
     get noAssistanceIcon() {
         return noAssistance;
     }
+    activeUsers = [];
 
     @wire(CurrentPageReference)
     getPageReference(pageRef) {
@@ -20,6 +22,20 @@ export default class CustomNoteKeeper extends LightningElement {
         }
     }
 
+
+    @wire(getActiveUsers)
+    wiredActiveUsers({ error, data }) {
+        if (data) {
+            this.userOptions = data.map(user => ({
+                label: user.Name, // Display user's Name in the combobox
+                value: user.Id   // Store the user's Id as the value
+            }));
+            this.error = undefined; // Clear any previous errors
+        } else if (error) {
+            this.error = error; // Handle error
+            this.userOptions = [];
+        }
+    }
     @track searchKey = '';
     @track selectedUserId = '';
     @track filteredNotes = [];
@@ -93,6 +109,8 @@ export default class CustomNoteKeeper extends LightningElement {
 
     handleButtonClick(event) {
         const value = event.currentTarget.dataset.value;
+        console.log('role: '+value)
+        this.newRole = value;
         const index = this.selectedButtonsValues.indexOf(value);
         if (index === -1) {
             this.selectedButtonsValues.push(value);
@@ -103,8 +121,13 @@ export default class CustomNoteKeeper extends LightningElement {
         
         if (this.showModal && !this.selectedNoteId) {
             this.newRole = this.selectedButtonsValues.join(', '); 
-        }
+        console.log('this.newRole 108: '+this.newRole )
 
+        }
+        console.log('this.newRole 111: '+this.newRole )
+        console.log('selectedButtonsValues '+this.selectedButtonsValues )
+
+        this.newRole = this.selectedButtonsValues;
         this.applyFilters();
     }
 
@@ -112,7 +135,7 @@ export default class CustomNoteKeeper extends LightningElement {
         this.showModal = true;
         this.modalTitle = 'New Note';
         this.modalButtonLabel = 'Create Note';
-        this.newRole = '';
+        // this.newRole = '';
         this.newNoteSubject = '';
         this.newNoteBody = '';
         this.selectedNoteId = null;
@@ -149,12 +172,24 @@ export default class CustomNoteKeeper extends LightningElement {
     }
 
     handleSaveNote() {
+        const noteData = JSON.stringify({
+            recordId: this.recordId,
+            noteId: this.selectedNoteId,
+            subject: this.newNoteSubject,
+            body: this.newNoteBody,
+            role: this.newRole
+        });
+        console.log('this.newRole : ',this.newRole);
+        console.log('noteData : ',noteData);
+
         if (this.selectedNoteId) {
             // Update existing note
             updateNote({
                 noteId: this.selectedNoteId,
                 subject: this.newNoteSubject,
-                body: this.newNoteBody
+                body: this.newNoteBody,
+                role: this.selectedButtonsValues.join(';') 
+
             })
                 .then(updatedNote => {
                     this.allNotes = this.allNotes.map(note =>
@@ -169,11 +204,12 @@ export default class CustomNoteKeeper extends LightningElement {
                 });
         } else {
             // Create new note
+            console.log('191: ',this.selectedButtonsValues.join(';'));
             createNote({
                 recordId: this.recordId,
                 subject: this.newNoteSubject,
                 body: this.newNoteBody,
-                role: this.newRole
+               role: this.selectedButtonsValues.join(';') 
             })
                 .then(note => {
                     this.allNotes = [note, ...this.allNotes];
@@ -186,16 +222,44 @@ export default class CustomNoteKeeper extends LightningElement {
                 });
         }
     }
-
     applyFilters() {
-        const search = this.searchKey.toLowerCase();
-        this.filteredNotes = this.allNotes.filter(note => {
-            const matchesSearch = (note.Subject || '').toLowerCase().includes(search) || (note.Body || '').toLowerCase().includes(search);
-            const matchesUser = this.selectedUserId ? note.OwnerId === this.selectedUserId : true;
-            const matchesRole = this.selectedButtonsValues.length ? this.selectedButtonsValues.includes(note.Role) : true;
-            return matchesSearch && matchesUser && matchesRole;
-        });
-    }
+    const search = this.searchKey.toLowerCase();
+    console.log('allNotes : ',JSON.stringify(this.allNotes));
+
+    this.filteredNotes = this.allNotes.filter(note => {
+    // console.log('note : ',JSON.stringify(note));
+
+        const matchesSearch =
+            (note.Subject || '').toLowerCase().includes(search) ||
+            (note.Body || '').toLowerCase().includes(search);
+
+        const matchesUser = this.selectedUserId ? note.OwnerId === this.selectedUserId : true;
+
+        const noteRoles = note.Role ? note.Role.split(';') : [];
+
+        const matchesRole = this.selectedButtonsValues.length === 0
+            ? true
+            : noteRoles.some(role => this.selectedButtonsValues.includes(role));
+
+        return matchesSearch && matchesUser && matchesRole;
+    });
+
+    console.log('filteredNotes : ',JSON.stringify(this.filteredNotes));
+}
+
+
+    // applyFilters() {
+    //     const search = this.searchKey.toLowerCase();
+    //     this.filteredNotes = this.allNotes.filter(note => {
+    //         const matchesSearch = (note.Subject || '').toLowerCase().includes(search) || (note.Body || '').toLowerCase().includes(search);
+    //         const matchesUser = this.selectedUserId ? note.OwnerId === this.selectedUserId : true;
+
+    //         const noteRoles = note.Role__c ? note.Role__c.split(';') : [];
+
+    //         const matchesRole = this.selectedButtonsValues.length === 0
+    //         return matchesSearch && matchesUser && matchesRole;
+    //     });
+    // }
 
     showErrorMessage(message) {
         this.errorMessage = message;

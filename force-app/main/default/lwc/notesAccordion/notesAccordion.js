@@ -4,7 +4,7 @@ export default class NotesAccordion extends LightningElement {
 
     // Dynamically set the icon name based on whether the accordion is open or closed
     get arrowIcon() {
-        return this.isOpen ? 'utility:chevronright' : 'utility:chevrondown';
+        return this.isOpen ? 'utility:chevrondown' : 'utility:chevronright';
     }
 
     toggleAccordion() {
