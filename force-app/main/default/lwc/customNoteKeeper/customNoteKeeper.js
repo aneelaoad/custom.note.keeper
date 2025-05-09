@@ -1,32 +1,45 @@
 import { LightningElement, track, api, wire } from 'lwc';
 import getNotes from '@salesforce/apex/NotesController.getNotes';
 import createNote from '@salesforce/apex/NotesController.createNote';
+import deleteNote from '@salesforce/apex/NotesController.deleteNote';
 import updateNote from '@salesforce/apex/NotesController.updateNote';
 import { CurrentPageReference } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import noAssistance from '@salesforce/resourceUrl/NoAsisstentceSvg';
 import getActiveUsers from '@salesforce/apex/NotesController.getActiveUsers';
+import { getRecord } from 'lightning/uiRecordApi';
+import NAME_FIELD from '@salesforce/schema/Opportunity.Name';
+import LEAD_NAME from '@salesforce/schema/Opportunity.Name';
+
 
 export default class CustomNoteKeeper extends LightningElement {
     recordId;
-    
-    get noAssistanceIcon() {
-        return noAssistance;
-    }
     activeUsers = [];
+    isLoading = false;
+    searchKey = '';
+    selectedUserId = '';
+    filteredNotes = [];
+    allNotes = [];
+    showModal = false;
+    newRole = '';
+    newNoteSubject = '';
+    newNoteBody = '';
+    selectedNoteId = null;
+    modalTitle = 'New Note';
+    modalButtonLabel = 'Create Note';
+    recordName = '';
+    errorMessage = '';
+    successMessage = '';
+    showError = false;
+    showSuccess = false;
+    selectedButtonsValues = [];
 
-    @wire(CurrentPageReference)
-    getPageReference(pageRef) {
-        if (pageRef && pageRef.state && pageRef.attributes.recordId) {
-            this.recordId = pageRef.attributes.recordId;
-        }
-    }
-
-
+    // ------wire methods-----
+    // ------------------------
     @wire(getActiveUsers)
     wiredActiveUsers({ error, data }) {
         if (data) {
-           this.userOptions = [
+            this.userOptions = [
                 { label: 'All', value: '' }, // Default "All" option
                 ...data.map(user => ({
                     label: user.Name, // Display user's Name in the combobox
@@ -39,28 +52,17 @@ export default class CustomNoteKeeper extends LightningElement {
             this.userOptions = [];
         }
     }
-    @track searchKey = '';
-    @track selectedUserId = '';
-    @track filteredNotes = [];
-    @track allNotes = [];
-    @track showModal = false;
-    @track newRole = '';
-    @track newNoteSubject = '';
-    @track newNoteBody = '';
-    @track selectedNoteId = null;
-    @track modalTitle = 'New Note';
-    @track modalButtonLabel = 'Create Note';
-    @track recordName = 'Record'; // Update based on actual record name if available
-    @track errorMessage = '';
-    @track successMessage = '';
-    @track showError = false;
-    @track showSuccess = false;
-
-    userOptions = [
-        { label: 'All', value: '' },
-        { label: 'Naruto Uzmaki', value: '005...' }
-    ];
-
+     @wire(CurrentPageReference)
+    getPageReference(pageRef) {
+        if (pageRef && pageRef.state && pageRef.attributes.recordId) {
+            this.recordId = pageRef.attributes.recordId;
+        }
+    }
+  
+  get noAssistanceIcon() {
+        return noAssistance;
+    }
+  
     buttonList = [
         { value: 'Processor', label: 'Processor', icon: 'action:submit_for_approval', baseClass: 'custom-green-icon' },
         { value: 'Loan Officer', label: 'Loan Officer', icon: 'action:new_case', baseClass: 'custom-orange-icon' },
@@ -71,7 +73,6 @@ export default class CustomNoteKeeper extends LightningElement {
         { value: 'Team Lead', label: 'Team Lead', icon: 'action:user', baseClass: 'custom-blue-icon' }
     ];
 
-    selectedButtonsValues = [];
 
     get updatedButtonList() {
         return this.buttonList.map(btn => {
@@ -84,7 +85,18 @@ export default class CustomNoteKeeper extends LightningElement {
         });
     }
 
+    // Wire the getRecord function to fetch record data
+    @wire(getRecord, { recordId: '$recordId', fields: [NAME_FIELD] })
+    wiredRecord({ error, data }) {
+        if (data) {
+            // Extract the name of the account record
+            this.recordName = data.fields.Name.value;
+        } else if (error) {
+            console.error('Error fetching record:', error);
+        }
+    }
     connectedCallback() {
+        this.isLoading = true;
         getNotes({ recordId: this.recordId })
             .then(result => {
                 this.allNotes = result;
@@ -92,8 +104,13 @@ export default class CustomNoteKeeper extends LightningElement {
             })
             .catch(error => {
                 this.showErrorMessage('Error fetching notes: ' + this.getErrorMessage(error));
+            })
+            .finally(() => {
+                this.isLoading = false;
             });
     }
+
+
 
     handleSearchKeyChange(event) {
         this.searchKey = event.target.value;
@@ -112,7 +129,7 @@ export default class CustomNoteKeeper extends LightningElement {
 
     handleButtonClick(event) {
         const value = event.currentTarget.dataset.value;
-        console.log('role: '+value)
+        console.log('role: ' + value)
         this.newRole = value;
         const index = this.selectedButtonsValues.indexOf(value);
         if (index === -1) {
@@ -121,19 +138,20 @@ export default class CustomNoteKeeper extends LightningElement {
             this.selectedButtonsValues.splice(index, 1);
         }
         this.selectedButtonsValues = [...this.selectedButtonsValues];
-        
+
         if (this.showModal && !this.selectedNoteId) {
-            this.newRole = this.selectedButtonsValues.join(', '); 
-        console.log('this.newRole 108: '+this.newRole )
+            this.newRole = this.selectedButtonsValues.join(', ');
+            console.log('this.newRole 108: ' + this.newRole)
 
         }
-        console.log('this.newRole 111: '+this.newRole )
-        console.log('selectedButtonsValues '+this.selectedButtonsValues )
+        console.log('this.newRole 111: ' + this.newRole)
+        console.log('selectedButtonsValues ' + this.selectedButtonsValues)
 
         this.newRole = this.selectedButtonsValues;
         this.applyFilters();
     }
 
+    // -------------Handle new note click--------
     handleNewNoteClick() {
         this.showModal = true;
         this.modalTitle = 'New Note';
@@ -143,6 +161,8 @@ export default class CustomNoteKeeper extends LightningElement {
         this.newNoteBody = '';
         this.selectedNoteId = null;
     }
+
+    // -------------Handle editing/updating the note--------
 
     handleEditNoteClick(event) {
         const noteId = event.currentTarget.dataset.id;
@@ -156,6 +176,30 @@ export default class CustomNoteKeeper extends LightningElement {
             this.showModal = true;
         }
     }
+    // -------------Handle deleting new note--------
+
+    handleDeleteNoteClick(event) {
+        const noteId = event.currentTarget.dataset.id;
+        this.isLoading = true;
+        if (confirm('Are you sure you want to delete this note?')) {
+            deleteNote({ noteId }) // Assume this is your Apex method
+                .then(() => {
+                    this.showSuccessMessage('Note deleted successfully');
+                    this.filteredNotes = this.filteredNotes.filter(note => note.Id !== noteId);
+                    
+                    // return this.loadNotes(); // Refresh notes list
+                })
+                .catch(error => {
+                    this.showErrorMessage('Error deleting note');
+                    console.error(error);
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
+        }
+    }
+
+    // -------------Handle Modal opening & closing--------
 
     handleCloseModal() {
         this.showModal = false;
@@ -174,7 +218,15 @@ export default class CustomNoteKeeper extends LightningElement {
         this.newNoteBody = event.target.value;
     }
 
+    // Handle creating new note
+    // Create and update notes
+
     handleSaveNote() {
+         if (!this.newNoteSubject || !this.newNoteBody) {
+        this.showErrorMessage('Subject and body are required.');
+        return;
+    }
+        this.isLoading = true;
         const noteData = JSON.stringify({
             recordId: this.recordId,
             noteId: this.selectedNoteId,
@@ -182,17 +234,13 @@ export default class CustomNoteKeeper extends LightningElement {
             body: this.newNoteBody,
             role: this.newRole
         });
-        console.log('this.newRole : ',this.newRole);
-        console.log('noteData : ',noteData);
 
         if (this.selectedNoteId) {
-            // Update existing note
             updateNote({
                 noteId: this.selectedNoteId,
                 subject: this.newNoteSubject,
                 body: this.newNoteBody,
-                role: this.selectedButtonsValues.join(';') 
-
+                role: this.selectedButtonsValues.join(';')
             })
                 .then(updatedNote => {
                     this.allNotes = this.allNotes.map(note =>
@@ -204,15 +252,16 @@ export default class CustomNoteKeeper extends LightningElement {
                 })
                 .catch(error => {
                     this.showErrorMessage('Error updating note: ' + this.getErrorMessage(error));
+                })
+                .finally(() => {
+                    this.isLoading = false;
                 });
         } else {
-            // Create new note
-            console.log('191: ',this.selectedButtonsValues.join(';'));
             createNote({
                 recordId: this.recordId,
                 subject: this.newNoteSubject,
                 body: this.newNoteBody,
-               role: this.selectedButtonsValues.join(';') 
+                role: this.selectedButtonsValues.join(';')
             })
                 .then(note => {
                     this.allNotes = [note, ...this.allNotes];
@@ -222,47 +271,43 @@ export default class CustomNoteKeeper extends LightningElement {
                 })
                 .catch(error => {
                     this.showErrorMessage('Error creating note: ' + this.getErrorMessage(error));
+                })
+                .finally(() => {
+                    this.isLoading = false;
                 });
         }
     }
+
+
+// -----Handle applying filters-------
+
     applyFilters() {
-    const search = this.searchKey.toLowerCase();
-    console.log('allNotes : ',JSON.stringify(this.allNotes));
+        const search = this.searchKey.toLowerCase();
+        console.log('allNotes : ', JSON.stringify(this.allNotes));
 
-    this.filteredNotes = this.allNotes.filter(note => {
-    // console.log('note : ',JSON.stringify(note));
+        this.filteredNotes = this.allNotes.filter(note => {
+            // console.log('note : ',JSON.stringify(note));
 
-        const matchesSearch =
-            (note.Subject || '').toLowerCase().includes(search) ||
-            (note.Body || '').toLowerCase().includes(search);
+            const matchesSearch =
+                (note.Subject || '').toLowerCase().includes(search) ||
+                (note.Body || '').toLowerCase().includes(search);
 
-        const matchesUser = this.selectedUserId ? note.OwnerId === this.selectedUserId : true;
+            const matchesUser = this.selectedUserId ? note.OwnerId === this.selectedUserId : true;
 
-        const noteRoles = note.Role ? note.Role.split(';') : [];
+            const noteRoles = note.Role ? note.Role.split(';') : [];
 
-        const matchesRole = this.selectedButtonsValues.length === 0
-            ? true
-            : noteRoles.some(role => this.selectedButtonsValues.includes(role));
+            const matchesRole = this.selectedButtonsValues.length === 0
+                ? true
+                : noteRoles.some(role => this.selectedButtonsValues.includes(role));
 
-        return matchesSearch && matchesUser && matchesRole;
-    });
+            return matchesSearch && matchesUser && matchesRole;
+        });
 
-    console.log('filteredNotes : ',JSON.stringify(this.filteredNotes));
-}
+        console.log('filteredNotes : ', JSON.stringify(this.filteredNotes));
+    }
 
 
-    // applyFilters() {
-    //     const search = this.searchKey.toLowerCase();
-    //     this.filteredNotes = this.allNotes.filter(note => {
-    //         const matchesSearch = (note.Subject || '').toLowerCase().includes(search) || (note.Body || '').toLowerCase().includes(search);
-    //         const matchesUser = this.selectedUserId ? note.OwnerId === this.selectedUserId : true;
-
-    //         const noteRoles = note.Role__c ? note.Role__c.split(';') : [];
-
-    //         const matchesRole = this.selectedButtonsValues.length === 0
-    //         return matchesSearch && matchesUser && matchesRole;
-    //     });
-    // }
+   //-----------Utility methods----------
 
     showErrorMessage(message) {
         this.errorMessage = message;
@@ -285,4 +330,10 @@ export default class CustomNoteKeeper extends LightningElement {
     getErrorMessage(error) {
         return error.body && error.body.message ? error.body.message : error.message || 'An unknown error occurred.';
     }
+
+
+    showToast(title, message, variant = 'success') {
+        this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+    }
+
 }

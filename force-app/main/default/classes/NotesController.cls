@@ -110,13 +110,19 @@ public with sharing class NotesController {
         }
     }
 
+@AuraEnabled
+public static void deleteNote(Id noteId) {
+    Note__c noteToDelete = [SELECT Id FROM Note__c WHERE Id = :noteId LIMIT 1];
+    delete noteToDelete;
+}
+
     public class NoteWrapper {
         @AuraEnabled public String Id;
         @AuraEnabled public String Subject;
         @AuraEnabled public String Body;
         @AuraEnabled public String OwnerName;
         @AuraEnabled public String OwnerId;
-        @AuraEnabled public String CreatedDate;
+        @AuraEnabled public DateTime CreatedDate;
         @AuraEnabled public String Role;
         @AuraEnabled public String Loan;
 
@@ -126,7 +132,7 @@ public with sharing class NotesController {
             Body = note.Body__c;
             OwnerName = note.Owner.Name;
             OwnerId = note.OwnerId;
-            CreatedDate = String.valueOf(note.CreatedDate);
+            CreatedDate = note.CreatedDate;
             Role = note.Role__c;
             Loan = note.Loan__c;
         }
